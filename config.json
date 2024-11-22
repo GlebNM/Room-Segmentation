@@ -1,0 +1,8 @@
+{
+    "below_ceiling": 0.3,
+    "above_floor": 1.5,
+    "below_ceiling_full": 0.2,
+    "resolution": 0.05,
+    "hist_threshold": 0.25,
+    "min_area_m": 0.5
+}
