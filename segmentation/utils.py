@@ -5,22 +5,10 @@ from typing import Dict, List, Set, Tuple, Union
 
 import cv2
 
-import faiss
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import numpy as np
-import open3d as o3d
-from scipy.sparse.csgraph import connected_components
-from scipy.spatial import cKDTree, distance
-from sklearn.cluster import DBSCAN, KMeans
-import torch
-import torch.nn.functional as F
-from torchmetrics.functional import pairwise_cosine_similarity
-from tqdm import tqdm
 
-import open3d as o3d
-
-import config
+import config as config
 
 def map_grid_to_point_cloud(occupancy_grid_map, resolution, point_cloud):
     """

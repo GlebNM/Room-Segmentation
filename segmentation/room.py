@@ -39,9 +39,6 @@ class Room:
         """
         self.objects.append(objectt)  # Method to add objects to the room
 
-    def set_txt_embeddings(self, text):
-        self.embeddings.append(get_text_feats_multiple_templates(text))
-
     def load(self, path):
         """
         Load the room from folder as ply for the point cloud

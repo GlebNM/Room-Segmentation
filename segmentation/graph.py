@@ -3,33 +3,16 @@
 """
 
 import os
-import copy
-from typing import Any, Dict, List, Set, Tuple, Union
-from pathlib import Path
 
 import cv2
 import numpy as np
-import open3d as o3d
 
 import matplotlib.pyplot as plt
 
-from scipy.ndimage import gaussian_filter1d
-from scipy.signal import find_peaks
-from scipy.spatial.transform import Rotation
-from scipy.spatial import cKDTree
+from segmentation.floor import Floor
+from segmentation.utils import distance_transform
 
-from scipy.ndimage import binary_erosion, median_filter
-from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
-
-from sklearn.cluster import DBSCAN
-from tqdm import tqdm
-import networkx as nx
-
-from floor import Floor
-from room import Room
-from utils import distance_transform, map_grid_to_point_cloud
-
-import config 
+import config as config 
 
 def segment_rooms(floor: Floor):
     """
@@ -51,9 +34,6 @@ def segment_rooms(floor: Floor):
     xyz = xyz[xyz[:, 1] >= floor_zero_level + parameters["above_floor"]]
     xyz_full = xyz_full[xyz_full[:, 1] < floor_zero_level + floor_height - parameters["below_ceiling_full"]]
     ## Slice above the floor and below the ceiling ##
-    # xyz = xyz[xyz[:, 1] < floor_zero_level + 1.8]
-    # xyz = xyz[xyz[:, 1] > floor_zero_level + 0.8]
-    # xyz_full = xyz_full[xyz_full[:, 1] < floor_zero_level + 1.8]
 
     # project the point cloud to 2d
     pcd_2d = xyz[:, [0, 2]]
@@ -145,59 +125,4 @@ def segment_rooms(floor: Floor):
         plt.savefig(os.path.join(tmp_floor_path, "full_map.png"))
     # apply distance transform to the full map
     room_vertices = distance_transform(full_map, resolution, tmp_floor_path)
-
-    # using the 2D room vertices, map the room back to the original point cloud using KDTree
-    # room_pcds = []
-    # room_masks = []
-    # room_2d_points = []
-    # floor_tree = cKDTree(np.array(floor_pcd.points))
-    # for i in tqdm(range(len(room_vertices)), desc="Assign floor points to rooms"):
-    #     room = np.zeros_like(full_map)
-    #     room[room_vertices[i][0], room_vertices[i][1]] = 255
-    #     room_masks.append(room)
-    #     room_m = map_grid_to_point_cloud(room, resolution, pcd_2d)
-    #     room_2d_points.append(room_m)
-    #     # extrude the 2D room to 3D room by adding z value from floor zero level to floor zero level + floor height, step by 0.1m
-    #     z_levels = np.arange(
-    #         floor_zero_level, floor_zero_level + floor_height, 0.05
-    #     )
-    #     z_levels = z_levels.reshape(-1, 1)
-    #     z_levels *= -1
-    #     room_m3dd = []
-    #     for z in z_levels:
-    #         room_m3d = np.hstack((room_m, np.ones((room_m.shape[0], 1)) * z))
-    #         room_m3dd.append(room_m3d)
-    #     room_m3d = np.concatenate(room_m3dd, axis=0)
-    #     pcd = o3d.geometry.PointCloud()
-    #     pcd.points = o3d.utility.Vector3dVector(room_m3d)
-    #     # rotate floor pcd to align with the original point cloud
-    #     T1 = np.eye(4)
-    #     T1[:3, :3] = Rotation.from_euler("x", 90, degrees=True).as_matrix()
-    #     pcd.transform(T1)
-    #     # find the nearest point in the original point cloud
-    #     _, idx = floor_tree.query(np.array(pcd.points), workers=-1)
-    #     pcd = floor_pcd.select_by_index(idx)
-    #     room_pcds.append(pcd)
-    # # self.room_masks[floor.floor_id] = room_masks TODO
-
-    # # compute the features of room: input a list of poses and images, output a list of embeddings list
-    # room_index = 0
-    # for i in range(len(room_2d_points)):
-    #     room = Room(
-    #         str(floor.floor_id) + "_" + str(room_index),
-    #         floor.floor_id,
-    #         name="room_" + str(room_index),
-    #     )
-    #     room.pcd = room_pcds[i]
-    #     room.vertices = room_2d_points[i]
-    #     # self.floors[int(floor.floor_id)].add_room(room) TODO
-    #     room.room_height = floor_height
-    #     room.room_zero_level = floor.floor_zero_level
-    #     # self.rooms.append(room) TODO
-    #     room_index += 1
-    # print(
-    #     "number of rooms in floor {} is {}".format(
-    #         floor.floor_id, len(self.floors[int(floor.floor_id)].rooms)
-    #     )
-    # )
-    # print("number of rooms:", len(room_2d_points))
+    

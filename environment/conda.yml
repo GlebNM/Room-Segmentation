@@ -1,0 +1,11 @@
+name: room_segmentation
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - numpy
+  - pip:
+    - opencv-python-headless
+    - open3d
