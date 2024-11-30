@@ -9,6 +9,7 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument('--floor_path', type=str)
 parser.add_argument('--output_path', type=str, default='tmp')
+parser.add_argument('--save_path', type=str, default=None)
 
 
 def main():
@@ -26,7 +27,6 @@ def main():
 
 if __name__ == '__main__':
     config.args = parser.parse_args()
-    print(config.args)
     with open('configs/config.json', 'r') as f:
         config.config = json.load(f)
     

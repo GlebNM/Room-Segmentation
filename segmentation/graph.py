@@ -5,12 +5,18 @@
 import os
 
 import cv2
+import open3d as o3d
+from tqdm import tqdm
 import numpy as np
+
+from scipy.spatial.transform import Rotation
+from scipy.spatial import cKDTree
 
 import matplotlib.pyplot as plt
 
 from segmentation.floor import Floor
-from segmentation.utils import distance_transform
+from segmentation.room import Room
+from segmentation.utils import distance_transform, map_grid_to_point_cloud
 
 import config as config 
 
@@ -125,4 +131,78 @@ def segment_rooms(floor: Floor):
         plt.savefig(os.path.join(tmp_floor_path, "full_map.png"))
     # apply distance transform to the full map
     room_vertices = distance_transform(full_map, resolution, tmp_floor_path)
+    
+       # combine the walls skelton and outside boundary
+    full_map = cv2.bitwise_or(walls_skeleton, cv2.bitwise_not(outside_boundary))
+
+    # apply closing to the full map
+    kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    full_map = cv2.morphologyEx(full_map, cv2.MORPH_CLOSE, kernal, iterations=2)
+
+    if True:
+        # plot the full map
+        plt.figure()
+        plt.imshow(full_map, cmap="gray", origin="lower")
+        plt.savefig(os.path.join(tmp_floor_path, "full_map.png"))
+    # apply distance transform to the full map
+    room_vertices = distance_transform(full_map, resolution, tmp_floor_path)
+
+    # using the 2D room vertices, map the room back to the original point cloud using KDTree
+    room_pcds = []
+    room_masks = []
+    room_2d_points = []
+    floor_tree = cKDTree(np.array(floor_pcd.points))
+    for i in tqdm(range(len(room_vertices)), desc="Assign floor points to rooms"):
+        room = np.zeros_like(full_map)
+        room[room_vertices[i][0], room_vertices[i][1]] = 255
+        room_masks.append(room)
+        room_m = map_grid_to_point_cloud(room, resolution, pcd_2d)
+        room_2d_points.append(room_m)
+        # extrude the 2D room to 3D room by adding z value from floor zero level to floor zero level + floor height, step by 0.1m
+        z_levels = np.arange(
+            floor_zero_level, floor_zero_level + floor_height, 0.05
+        )
+        z_levels = z_levels.reshape(-1, 1)
+        z_levels *= -1
+        room_m3dd = []
+        for z in z_levels:
+            room_m3d = np.hstack((room_m, np.ones((room_m.shape[0], 1)) * z))
+            room_m3dd.append(room_m3d)
+        room_m3d = np.concatenate(room_m3dd, axis=0)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(room_m3d)
+        # rotate floor pcd to align with the original point cloud
+        T1 = np.eye(4)
+        T1[:3, :3] = Rotation.from_euler("x", 90, degrees=True).as_matrix()
+        pcd.transform(T1)
+        # find the nearest point in the original point cloud
+        _, idx = floor_tree.query(np.array(pcd.points), workers=-1)
+        pcd = floor_pcd.select_by_index(idx)
+        room_pcds.append(pcd)
+    # self.room_masks[floor.floor_id] = room_masks
+
+    # compute the features of room: input a list of poses and images, output a list of embeddings list
+    room_index = 0
+    for i in range(len(room_2d_points)):
+        room = Room(
+            str(floor.floor_id) + "_" + str(room_index),
+            floor.floor_id,
+            name="room_" + str(room_index),
+        )
+        room.pcd = room_pcds[i]
+        room.vertices = room_2d_points[i]
+        # self.floors[int(floor.floor_id)].add_room(room)
+        room.room_height = floor_height
+        room.room_zero_level = floor.floor_zero_level
+        # self.rooms.append(room)
+        room_index += 1
+    print("number of rooms:", len(room_2d_points))
+    
+    if config.args.save_path is not None:
+        os.makedirs(config.args.save_path, exist_ok=True)
+        for i in range(len(room_pcds)):
+            o3d.io.write_point_cloud(
+                os.path.join(config.args.save_path, "room_" + str(i) + ".ply"),
+                room_pcds[i],
+            )
     
